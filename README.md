@@ -87,7 +87,7 @@ services:
 | `RUN_INTERVAL_HOURS` | How often the container re-runs the overlay update loop. Only used by the Docker entrypoint; ignored if running the script manually.                     | *unset → run once on start*                |
 
 
-Example countdown_overlays.yml Result
+## Example countdown_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
     overlay:
@@ -114,7 +114,7 @@ Example countdown_overlays.yml Result
       all:
         title: Cat's Eye
 ```
-Example weekday_overlays.yml Result
+## Example weekday_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
     overlay:
@@ -141,7 +141,7 @@ Example weekday_overlays.yml Result
       all:
         title: Cat's Eye
 ```
-Example anilist_cache.json Result
+## Example anilist_cache.json Result
 ```
 {
   "Alma-chan Wants to Be a Family!": {             // Each key is a Plex show title as it appears in your library 
@@ -242,7 +242,53 @@ Example anilist_cache.json Result
 }
 
 ```
+# Manual Title Control (manual_exceptions.json)
+You can manually control how specific titles are handled using `/config/manual_exceptions.json`
 
+Alternatively, you can set a custom path with the environment variable: `MANUAL_EXCEPTIONS_FILE=/path/to/manual_exceptions.json`
+
+### Finding AniList IDs
+You can find AniList IDs by visiting a show’s AniList page: `https://anilist.co/anime/<id>/`
+
+For example:
+```
+https://anilist.co/anime/21459/
+```
+Here, 21459 is the AniList ID for My Hero Academia.
+
+### Ignore or Skip Certain Shows
+If a show has finished airing, is not anime, or you simply don’t want it included:
+```
+{
+  "Bleach": null,
+  "Attack on Titan": "ignore"
+}
+```
+Both behave the same way — they tell the script to ignore these shows completely.
+
+### Force-Match a Show to a Specific AniList ID
+If a Plex title doesn’t match automatically (e.g., different naming, remake, or year mismatch):
+```
+{
+  "Naruto": 20,
+  "My Hero Academia": 21459,
+  "Gachiakuta": 178025
+}
+```
+The script will directly fetch AniList data for those IDs instead of searching by name.
+
+## Full Example manual_exceptions.json File
+```
+{
+  "Attack on Titan": null,
+  "Naruto": 20,
+  "Bleach": null,
+  "Gachiakuta": 178025,
+  "My Hero Academia": 21459,
+  "The Simpsons": null,
+  "Death Note": 1535
+}
+```
 <img width="247" height="374" alt="image" src="https://github.com/user-attachments/assets/cadc1930-8b11-40c2-9795-3b287bdbe26d" />
 <img width="249" height="374" alt="image" src="https://github.com/user-attachments/assets/9d7b2fef-e89c-40d4-9652-b1d86263d2fd" />
 <img width="248" height="373" alt="image" src="https://github.com/user-attachments/assets/550941e8-387e-444d-99da-1b961521df7d" />
