@@ -30,16 +30,18 @@ docker run -d \
 | `PLEX_TOKEN`         | **Your Plex authentication token.** Required for API access to your Plex library.                                                                        | **required**                               |
 | `ANILIST_TOKEN`      | **AniList personal access token.** Required to query AniList’s GraphQL API for next episode and show data.                                               | **required**                               |
 | `LIBRARY_NAME`       | **Name of your Plex library** that contains anime or shows you want processed. Must exactly match the Plex library name.                                 | `Anime`                                    |
-| `CACHE_FILE`         | **Path where AniList results are cached.** Prevents re-querying every run and reduces API calls.                                                         | `/config/anilist_cache.json`               |
-| `OUTPUT_FILE`        | **Path for next_air_date.yml.** Each show gets an overlay for its *airing weekday* (e.g., `monday`, `friday`).                                           | `/config/overlays/next_air_date.yml`       |
-| `AIRING_DAY_OUTPUT`  | **Path for airing_day_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                                     | `/config/overlays/airing_day_overlays.yml` |
+| `CACHE_FILE`         | **File path where AniList results are cached.** Prevents re-querying every run and reduces API calls.                                                         | `/config/anilist_cache.json`               |
+| `OUTPUT_FILE`        | **File path for next_air_date.yml.** Each show gets an overlay for its *airing weekday* (e.g., `monday`, `friday`).                                           | `/config/overlays/next_air_date.yml`       |
+| `AIRING_DAY_OUTPUT`  | **File path for airing_day_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                                     | `/config/overlays/airing_day_overlays.yml` |
 | `RATE_LIMIT_DELAY`   | **Seconds to wait between AniList API calls.** Helps prevent hitting rate limits. Recommended: `3–5`.                                                    | `5`                                        |
 | `CACHE_EXPIRY_HOURS` | **How long cached AniList data stays valid** before being refreshed. Lower = more frequent re-queries.                                                   | `24`                                       |
 | `ANILIST_FORMATS`    | **Comma-separated AniList formats to include.** Lets you limit to `TV`, `OVA`, etc. Accepted values: `TV`, `TV_SHORT`, `ONA`, `OVA`, `MOVIE`, `SPECIAL`. | `TV,TV_SHORT,ONA,OVA`                      |
 | `MAX_AIR_DAYS`       | **Maximum future days to include for airing episodes.** Prevents adding overlays for shows airing months away.                                           | `14`                                       |
 | `FORCE_REFRESH`      | **Bypasses cache on next run.** Set `true` to re-fetch all AniList data even if cached. Useful if schedules change.                                      | `false`                                    |
 | `ANILIST_DEBUG`      | **Enables detailed AniList match logs.** Logs all candidate titles, synonyms, and match scores_                                                          | `false`                                    |
-
+| `LOG_FILE`           | **File path for log output.** Useful for Docker log persistence.                                                                                         | `/config/logs/anilist_overlay.log`         |
+| `MAX_LOG_SIZE`       | **Maximum size (in bytes)** before log rotation. Default = 5 MB (`5 * 1024 * 1024`).                                                                     | `5 * 1024 * 1024`                          |
+| `BACKUP_COUNT`       | **Number of rotated log files to keep.** Older logs beyond this count are deleted.                                                                       | `7`                                        |
 Example airing_day_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
