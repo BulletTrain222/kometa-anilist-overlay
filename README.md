@@ -87,7 +87,7 @@ services:
 | `RUN_INTERVAL_HOURS` | How often the container re-runs the overlay update loop. Only used by the Docker entrypoint; ignored if running the script manually.                     | *unset → run once on start*                |
 
 
-Example airing_day_overlays.yml Result
+Example countdown_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
     overlay:
@@ -114,7 +114,7 @@ Example airing_day_overlays.yml Result
       all:
         title: Cat's Eye
 ```
-Example next_air_date.yml Result
+Example weekday_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
     overlay:
