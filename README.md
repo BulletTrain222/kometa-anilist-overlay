@@ -1,7 +1,7 @@
 # kometa-anilist-overlay
 Automatically generates Plex poster overlays in Kometa using AniList data — showing next episode air dates, airing weekdays, and more.
 
-'''
+```
 docker run -d \
   --name=kometa-anilist-overlay \
   -e TZ=America/Los_Angeles `# timezone (optional)` \
@@ -20,5 +20,5 @@ docker run -d \
   -v /path/to/kometa/config:/config `# map your config folder` \
   --restart unless-stopped \
   kometa-anilist-overlay
-  '''
-  yes
+  ```
+  
