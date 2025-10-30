@@ -1,7 +1,7 @@
 # kometa-anilist-overlay
 Automatically generates Plex poster overlays in Kometa using AniList data — showing next episode air dates, airing weekdays, and more.
 
-Docker Run Example
+Minimal Example – Quick Start
 ```
 docker run -d \
   --name=kometa-anilist-overlay \
@@ -9,21 +9,44 @@ docker run -d \
   -e PLEX_URL=http://192.168.0.1:32400 `# your plex server URL` \
   -e PLEX_TOKEN=YOUR_PLEX_TOKEN `# your plex token` \
   -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# your anilist token` \
-  -e RATE_LIMIT_DELAY=5 `# seconds between anilist API calls` \
+  -e LIBRARY_NAME=Anime `# plex library to scan` \
   -e CACHE_EXPIRY_HOURS=120 `# cache refresh rate (hours)` \
   -e LIBRARY_NAME=Anime `# plex library to scan` \
-  -e LOG_FILE=/config/logs/overlay.log `# log output file path` \
   -e RUN_INTERVAL_HOURS=1 `# rerun interval (optional)` \
-  -e MAX_AIR_DAYS=14 `# max upcoming days to include` \
-  -e ANILIST_DEBUG=true `# enable detailed debug logs` \
-  -e ANILIST_FORMATS=TV,TV_SHORT,ONA,OVA `# media formats to include` \
-  -e FORCE_REFRESH=false `# ignore cache and force API refresh` \
   -v /path/to/kometa/config:/config `# map your config folder` \
   --restart unless-stopped \
   kometa-anilist-overlay
   ```
 
-  
+Full Example
+```
+docker run -d \
+  --name=kometa-anilist-overlay \
+  -e TZ=America/Los_Angeles `# System timezone (optional)` \
+  -e PLEX_URL=http://192.168.0.1:32400 `# Plex base URL` \
+  -e PLEX_TOKEN=YOUR_PLEX_TOKEN `# Plex authentication token (required)` \
+  -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# AniList API token (required)` \
+  -e LIBRARY_NAME=Anime,TV Shows `# multiple libraries (comma separated)`
+  -e OUTPUT_FILE=/config/overlays/next_air_date.yml `# Overlay YAML output path` \
+  -e AIRING_DAY_OUTPUT=/config/overlays/airing_day_overlays.yml `# “Days until” overlay YAML output path` \
+  -e CACHE_FILE=/config/anilist_cache.json `# JSON cache file path` \
+  -e RATE_LIMIT_DELAY=5 `# Seconds between AniList API requests (avoid rate limit)` \
+  -e CACHE_EXPIRY_HOURS=120 `# Cache refresh interval (in hours)` \
+  -e MAX_AIR_DAYS=14 `# Maximum upcoming days to include` \
+  -e FORCE_REFRESH=false `# If true, ignores cache and re-queries AniList` \
+  -e ANILIST_DEBUG=false `# Enable detailed debug logging` \
+  -e ANILIST_FORMATS=TV,TV_SHORT,ONA,OVA,MOVIE `# Comma-separated formats to include` \
+  -e LOG_FILE=/config/logs/anilist_overlay.log `# Path to log file` \
+  -e MAX_LOG_SIZE=5242880 `# Maximum log file size before rotation (bytes)` \
+  -e BACKUP_COUNT=7 `# Number of old log files to keep` \
+  -e RUN_INTERVAL_HOURS=2 `# Re-run overlay generator every X hours` \
+  -v /path/to/kometa/config:/config `# Mount your Kometa config directory` \
+  --restart unless-stopped \
+  kometa-anilist-overlay
+
+  ```
+
+
 | Variable             | Description                                                                                                                                              | Default                                    |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `PLEX_URL`           | **Base URL of your Plex server.** Used by the script to connect to Plex and read library titles.                                                         | `http://localhost:32400`                   |
