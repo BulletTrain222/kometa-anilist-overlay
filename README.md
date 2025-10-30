@@ -38,6 +38,7 @@ docker run -d \
   -e MAX_LOG_SIZE=5242880 `# Maximum log file size before rotation (bytes)` \
   -e BACKUP_COUNT=7 `# Number of old log files to keep` \
   -e RUN_INTERVAL_HOURS=2 `# Re-run overlay generator every X hours` \
+  -e CLEAN_MISSING_FROM_PLEX=true `# Removes cache entries for titles no longer in Plex` \
   -v /path/to/kometa/config:/config `# Mount your Kometa config directory` \
   --restart unless-stopped \
   kometa-anilist-overlay
@@ -76,7 +77,7 @@ services:
 | `OVERLAY_WEEKDAY_FILE`  | **File path for weekday_overlays.yml.** Each show gets an overlay for its *airing weekday* (e.g., `monday`, `friday`).                                | `/config/overlays/weekday_overlays.yml`    |
 | `OVERLAY_COUNTDOWN_FILE`| **File path for countdown_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                              | `/config/overlays/countdown_overlays.yml`  |
 | `RATE_LIMIT_DELAY`   | **Seconds to wait between AniList API calls.** Helps prevent hitting rate limits. Recommended: `3–5`.                                                    | `5`                                        |
-| `CACHE_EXPIRY_HOURS` | **How long cached AniList data stays valid** before being refreshed. Lower = more frequent re-queries.                                                   | `120`                                       |
+| `CACHE_EXPIRY_HOURS` | **How long cached AniList data stays valid** before being refreshed. Lower = more frequent re-queries.                                                   | `120`                                      |
 | `ANILIST_FORMATS`    | **Comma-separated AniList formats to include.** Lets you limit to `TV`, `OVA`, etc. Accepted values: `TV`, `TV_SHORT`, `ONA`, `OVA`, `MOVIE`, `SPECIAL`. | `TV,TV_SHORT,ONA,OVA`                      |
 | `MAX_AIR_DAYS`       | **Maximum future days to include for airing episodes.** Prevents adding overlays for shows airing months away.                                           | `14`                                       |
 | `FORCE_REFRESH`      | **Bypasses cache on next run.** Set `true` to re-fetch all AniList data even if cached. Useful if schedules change.                                      | `false`                                    |
@@ -85,6 +86,7 @@ services:
 | `MAX_LOG_SIZE`       | **Maximum size (in bytes)** before log rotation. Default = 5 MB (`5 * 1024 * 1024`).                                                                     | `5 * 1024 * 1024`                          |
 | `BACKUP_COUNT`       | **Number of rotated log files to keep.** Older logs beyond this count are deleted.                                                                       | `7`                                        |
 | `RUN_INTERVAL_HOURS` | How often the container re-runs the overlay update loop. Only used by the Docker entrypoint; ignored if running the script manually.                     | *unset → run once on start*                |
+| `CLEAN_MISSING_FROM_PLEX` | Removes cache entries for titles no longer in Plex (to prevent stale overlays).                                                                     | `false`                                    |
 
 
 ## Example countdown_overlays.yml Result
