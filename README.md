@@ -6,7 +6,7 @@ Minimal Example – Quick Start
 docker run -d \
   --name=kometa-anilist-overlay \
   -e TZ=America/Los_Angeles `# timezone (optional)` \
-  -e PLEX_URL=http://192.168.0.1:32400 `# your plex server URL` \
+  -e PLEX_URL=http://localhost:32400 `# your plex server URL` \
   -e PLEX_TOKEN=YOUR_PLEX_TOKEN `# your plex token` \
   -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# your anilist token` \
   -e LIBRARY_NAME=Anime `# plex library to scan` \
@@ -21,7 +21,7 @@ Full Example
 docker run -d \
   --name=kometa-anilist-overlay \
   -e TZ=America/Los_Angeles `# System timezone (optional)` \
-  -e PLEX_URL=http://192.168.0.1:32400 `# Plex base URL` \
+  -e PLEX_URL=http://localhost:32400 `# Plex base URL` \
   -e PLEX_TOKEN=YOUR_PLEX_TOKEN `# Plex authentication token (required)` \
   -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# AniList API token (required)` \
   -e LIBRARY_NAME=Anime,TV Shows `# multiple libraries (comma separated)`
