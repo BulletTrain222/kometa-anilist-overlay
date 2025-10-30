@@ -38,7 +38,7 @@ docker run -d \
   -e MAX_LOG_SIZE=5242880 `# Maximum log file size before rotation (bytes)` \
   -e BACKUP_COUNT=7 `# Number of old log files to keep` \
   -e RUN_INTERVAL_HOURS=2 `# Re-run overlay generator every X hours` \
-  -e CLEAN_MISSING_FROM_PLEX=true `# Removes cache entries for titles no longer in Plex` \
+  -e CLEAN_MISSING_FROM_PLEX=false `# Removes cache entries for titles no longer in Plex` \
   -v /path/to/kometa/config:/config `# Mount your Kometa config directory` \
   --restart unless-stopped \
   kometa-anilist-overlay
