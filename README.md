@@ -11,7 +11,6 @@ docker run -d \
   -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# your anilist token` \
   -e LIBRARY_NAME=Anime `# plex library to scan` \
   -e CACHE_EXPIRY_HOURS=120 `# cache refresh rate (hours)` \
-  -e LIBRARY_NAME=Anime `# plex library to scan` \
   -e RUN_INTERVAL_HOURS=1 `# rerun interval (optional)` \
   -v /path/to/kometa/config:/config `# map your config folder` \
   --restart unless-stopped \
