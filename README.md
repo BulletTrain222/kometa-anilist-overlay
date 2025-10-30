@@ -11,7 +11,7 @@ docker run -d \
   -e ANILIST_TOKEN=YOUR_ANILIST_TOKEN `# your anilist token` \
   -e LIBRARY_NAME=Anime `# plex library to scan` \
   -e RUN_INTERVAL_HOURS=2 `# rerun interval (optional)` \
-  -v /path/to/kometa/config:/config `# map your config folder` \
+  -v /path/to/kometa/config:/config `# Mount your Kometa config directory` \
   --restart unless-stopped \
   kometa-anilist-overlay
   ```
