@@ -30,9 +30,9 @@ docker run -d \
 | `PLEX_TOKEN`         | **Your Plex authentication token.** Required for API access to your Plex library.                                                                        | **required**                               |
 | `ANILIST_TOKEN`      | **AniList personal access token.** Required to query AniList’s GraphQL API for next episode and show data.                                               | **required**                               |
 | `LIBRARY_NAME`       | **Name of your Plex library** that contains anime or shows you want processed. Must exactly match the Plex library name.                                 | `Anime`                                    |
-| `CACHE_FILE`         | **File path where AniList results are cached.** Prevents re-querying every run and reduces API calls.                                                         | `/config/anilist_cache.json`               |
-| `OUTPUT_FILE`        | **File path for next_air_date.yml.** Each show gets an overlay for its *airing weekday* (e.g., `monday`, `friday`).                                           | `/config/overlays/next_air_date.yml`       |
-| `AIRING_DAY_OUTPUT`  | **File path for airing_day_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                                     | `/config/overlays/airing_day_overlays.yml` |
+| `CACHE_FILE`         | **File path where AniList results are cached.** Prevents re-querying every run and reduces API calls.                                                    | `/config/anilist_cache.json`               |
+| `OUTPUT_FILE`        | **File path for next_air_date.yml.** Each show gets an overlay for its *airing weekday* (e.g., `monday`, `friday`).                                      | `/config/overlays/next_air_date.yml`       |
+| `AIRING_DAY_OUTPUT`  | **File path for airing_day_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                                | `/config/overlays/airing_day_overlays.yml` |
 | `RATE_LIMIT_DELAY`   | **Seconds to wait between AniList API calls.** Helps prevent hitting rate limits. Recommended: `3–5`.                                                    | `5`                                        |
 | `CACHE_EXPIRY_HOURS` | **How long cached AniList data stays valid** before being refreshed. Lower = more frequent re-queries.                                                   | `24`                                       |
 | `ANILIST_FORMATS`    | **Comma-separated AniList formats to include.** Lets you limit to `TV`, `OVA`, etc. Accepted values: `TV`, `TV_SHORT`, `ONA`, `OVA`, `MOVIE`, `SPECIAL`. | `TV,TV_SHORT,ONA,OVA`                      |
@@ -42,7 +42,7 @@ docker run -d \
 | `LOG_FILE`           | **File path for log output.** Useful for Docker log persistence.                                                                                         | `/config/logs/anilist_overlay.log`         |
 | `MAX_LOG_SIZE`       | **Maximum size (in bytes)** before log rotation. Default = 5 MB (`5 * 1024 * 1024`).                                                                     | `5 * 1024 * 1024`                          |
 | `BACKUP_COUNT`       | **Number of rotated log files to keep.** Older logs beyond this count are deleted.                                                                       | `7`                                        |
-
+| `RUN_INTERVAL_HOURS` | How often the container re-runs the overlay update loop. Only used by the Docker entrypoint; ignored if running the script manually.                     | *unset → run once on start*                |
 
 
 Example airing_day_overlays.yml Result
