@@ -42,6 +42,9 @@ docker run -d \
 | `LOG_FILE`           | **File path for log output.** Useful for Docker log persistence.                                                                                         | `/config/logs/anilist_overlay.log`         |
 | `MAX_LOG_SIZE`       | **Maximum size (in bytes)** before log rotation. Default = 5 MB (`5 * 1024 * 1024`).                                                                     | `5 * 1024 * 1024`                          |
 | `BACKUP_COUNT`       | **Number of rotated log files to keep.** Older logs beyond this count are deleted.                                                                       | `7`                                        |
+
+
+
 Example airing_day_overlays.yml Result
 ```
   The Banished Court Magician Aims to Become the Strongest:
