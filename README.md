@@ -94,3 +94,4 @@ Example next_air_date.yml Result
       all:
         title: Cat's Eye
 ```
+<img width="247" height="374" alt="image" src="https://github.com/user-attachments/assets/cadc1930-8b11-40c2-9795-3b287bdbe26d" />
