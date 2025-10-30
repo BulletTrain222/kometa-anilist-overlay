@@ -58,8 +58,7 @@ services:
       PLEX_TOKEN: YOUR_PLEX_TOKEN         # Plex token (required)
       ANILIST_TOKEN: YOUR_ANILIST_TOKEN   # AniList token (required)
       LIBRARY_NAME: Anime                 # Plex library to scan
-      CACHE_EXPIRY_HOURS: 120             # Cache refresh interval (hours)
-      RUN_INTERVAL_HOURS: 1               # How often to rerun (hours)
+      RUN_INTERVAL_HOURS: 2               # How often to rerun (hours)
 
     volumes:
       - /path/to/kometa/config:/config  # Mount your Kometa config directory
