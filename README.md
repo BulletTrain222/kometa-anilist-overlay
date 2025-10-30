@@ -121,6 +121,110 @@ Example next_air_date.yml Result
       all:
         title: Cat's Eye
 ```
+Example anilist_cache.json Result
+```
+{
+  // Each key is a Plex show title as it appears in your library
+  "Alma-chan Wants to Be a Family!": {
+    // Each title contains a cached AniList lookup result and timestamp
+    "result": {
+      "weekday": "sunday",              // Local weekday the next episode airs
+      "air_datetime_utc": "2025-11-02 14:00:00",  // Airing time in UTC
+      "air_datetime_local": "2025-11-02 06:00:00", // Airing time in your system timezone
+      "episode_number": 5,               // Next upcoming episode number
+      "time_until_hours": 81.3,          // Hours remaining until next episode airs (local time)
+      "anilist_id": 186190,              // AniList media ID
+      "e": "Alma-chan wa Kazoku ni Naritai", // Official AniList title used internally
+      "match_score": 1.0,                // Fuzzy match confidence (1.0 = perfect)
+      "averageScore": 67,                // AniList average score (out of 100)
+      "matched_synonym": null            // If matched using an AniList synonym, shows which one
+    },
+    "timestamp": "2025-10-29T21:41:55.783596" // When this entry was last refreshed
+  },
+
+  "The Banished Court Magician Aims to Become the Strongest": {
+    "result": {
+      "weekday": "saturday",
+      "air_datetime_utc": "2025-11-01 14:30:00",
+      "air_datetime_local": "2025-11-01 07:30:00",
+      "episode_number": 5,
+      "time_until_hours": 57.7,
+      "anilist_id": 188487,
+      "e": "Mikata ga Yowa Sugite Hojo Mahou ni Toushite Ita Kyuutei Mahoushi, Tsuihou Sarete Saikyou wo Mezasu",
+      "match_score": 1.0,
+      "averageScore": 60,
+      "matched_synonym": null
+    },
+    "timestamp": "2025-10-29T21:45:00.552291"
+  },
+
+  "Blue Orchestra": {
+    "result": {
+      "weekday": "sunday",
+      "air_datetime_utc": "2025-11-02 08:00:00",
+      "air_datetime_local": "2025-11-02 01:00:00",
+      "episode_number": 5,
+      "time_until_hours": 75.2,
+      "anilist_id": 170018,
+      "e": "Ao no Orchestra Season 2",
+      "match_score": 0.683,             // Slightly imperfect fuzzy match (0.68 confidence)
+      "averageScore": 66,
+      "matched_synonym": "The Blue Orchestra Season 2" // Found using synonym match
+    },
+    "timestamp": "2025-10-29T21:46:40.595461"
+  },
+
+  "Campfire Cooking in Another World with My Absurd Skill": {
+    "result": {
+      "weekday": "tuesday",
+      "air_datetime_utc": "2025-11-04 15:00:00",
+      "air_datetime_local": "2025-11-04 07:00:00",
+      "episode_number": 5,
+      "time_until_hours": 130.2,
+      "anilist_id": 170577,
+      "e": "Tondemo Skill de Isekai Hourou Meshi 2",
+      "match_score": 0.923,
+      "averageScore": 75,
+      "matched_synonym": null
+    },
+    "timestamp": "2025-10-29T21:48:00.279226"
+  },
+
+  "Cat's Eye": {
+    "result": {
+      "weekday": "friday",
+      "air_datetime_utc": "2025-10-31 07:00:00",
+      "air_datetime_local": "2025-10-31 00:00:00",
+      "episode_number": 6,
+      "time_until_hours": 26.2,
+      "anilist_id": 184718,
+      "e": "Cat's♥Eye (2025)",
+      "match_score": 0.75,
+      "averageScore": 57,
+      "matched_synonym": "Signé Cat's Eye"
+    },
+    "timestamp": "2025-10-29T21:48:21.781757"
+  },
+
+  "Chitose Is in the Ramune Bottle": {
+    "result": {
+      "weekday": "tuesday",
+      "air_datetime_utc": "2025-11-04 14:00:00",
+      "air_datetime_local": "2025-11-04 06:00:00",
+      "episode_number": 5,
+      "time_until_hours": 129.2,
+      "anilist_id": 180082,
+      "e": "Chitose-kun wa Ramune Bin no Naka",
+      "match_score": 1.0,
+      "averageScore": 68,
+      "matched_synonym": null
+    },
+    "timestamp": "2025-10-29T21:49:09.610050"
+  }
+}
+
+```
+
 <img width="247" height="374" alt="image" src="https://github.com/user-attachments/assets/cadc1930-8b11-40c2-9795-3b287bdbe26d" />
 <img width="249" height="374" alt="image" src="https://github.com/user-attachments/assets/9d7b2fef-e89c-40d4-9652-b1d86263d2fd" />
 <img width="248" height="373" alt="image" src="https://github.com/user-attachments/assets/550941e8-387e-444d-99da-1b961521df7d" />
