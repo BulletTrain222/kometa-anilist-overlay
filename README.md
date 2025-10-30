@@ -98,6 +98,9 @@ Example next_air_date.yml Result
 <img width="249" height="374" alt="image" src="https://github.com/user-attachments/assets/9d7b2fef-e89c-40d4-9652-b1d86263d2fd" />
 <img width="248" height="373" alt="image" src="https://github.com/user-attachments/assets/550941e8-387e-444d-99da-1b961521df7d" />
 <img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/5c0ecfb7-425d-4722-836c-ee02ec5103d0" />
+<img width="248" height="376" alt="image" src="https://github.com/user-attachments/assets/265b643e-2fed-4e7e-b7a1-30840c0a0af9" />
+<img width="254" height="376" alt="image" src="https://github.com/user-attachments/assets/f5b526a9-509b-4a7c-a44f-1a230a1078a0" />
+
 
 
 
