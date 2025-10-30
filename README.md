@@ -248,9 +248,9 @@ You can manually control how specific titles are handled using `/config/manual_e
 Alternatively, you can set a custom path with the environment variable: `MANUAL_EXCEPTIONS_FILE=/path/to/manual_exceptions.json`
 
 ### Finding AniList IDs
-You can find AniList IDs by visiting a show’s AniList page: `https://anilist.co/anime/<id>/`
+You can find AniList IDs by visiting a show’s AniList page: `https://anilist.co/anime/`rgb(9, 105, 218)`<id>/`
 
-For example:
+$${\color{red}Red}$$ For example:
 ```
 https://anilist.co/anime/21459/
 ```
@@ -280,7 +280,8 @@ The script will directly fetch AniList data for those IDs instead of searching b
 ## Full Example manual_exceptions.json File
 ```
 {
-  "Attack on Titan": null,
+  "Attack on Titan": 16498,
+  "Adventure Time": null,
   "Naruto": 20,
   "Bleach": null,
   "Gachiakuta": 178025,
