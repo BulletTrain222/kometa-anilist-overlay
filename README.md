@@ -124,22 +124,20 @@ Example next_air_date.yml Result
 Example anilist_cache.json Result
 ```
 {
-  // Each key is a Plex show title as it appears in your library
-  "Alma-chan Wants to Be a Family!": {
-    // Each title contains a cached AniList lookup result and timestamp
+  "Alma-chan Wants to Be a Family!": {             // Each key is a Plex show title as it appears in your library 
     "result": {
-      "weekday": "sunday",              // Local weekday the next episode airs
-      "air_datetime_utc": "2025-11-02 14:00:00",  // Airing time in UTC
+      "weekday": "sunday",                         // Local weekday the next episode airs
+      "air_datetime_utc": "2025-11-02 14:00:00",   // Airing time in UTC
       "air_datetime_local": "2025-11-02 06:00:00", // Airing time in your system timezone
-      "episode_number": 5,               // Next upcoming episode number
-      "time_until_hours": 81.3,          // Hours remaining until next episode airs (local time)
-      "anilist_id": 186190,              // AniList media ID
-      "e": "Alma-chan wa Kazoku ni Naritai", // Official AniList title used internally
-      "match_score": 1.0,                // Fuzzy match confidence (1.0 = perfect)
-      "averageScore": 67,                // AniList average score (out of 100)
-      "matched_synonym": null            // If matched using an AniList synonym, shows which one
+      "episode_number": 5,                         // Next upcoming episode number
+      "time_until_hours": 81.3,                    // Hours remaining until next episode airs (local time)
+      "anilist_id": 186190,                        // AniList media ID
+      "e": "Alma-chan wa Kazoku ni Naritai",       // Official AniList title used internally
+      "match_score": 1.0,                          // Fuzzy match confidence (1.0 = perfect)
+      "averageScore": 67,                          // AniList average score (out of 100)
+      "matched_synonym": null                      // If matched using an AniList synonym, shows which one
     },
-    "timestamp": "2025-10-29T21:41:55.783596" // When this entry was last refreshed
+    "timestamp": "2025-10-29T21:41:55.783596"      // When this entry was last refreshed
   },
 
   "The Banished Court Magician Aims to Become the Strongest": {
@@ -167,9 +165,9 @@ Example anilist_cache.json Result
       "time_until_hours": 75.2,
       "anilist_id": 170018,
       "e": "Ao no Orchestra Season 2",
-      "match_score": 0.683,             // Slightly imperfect fuzzy match (0.68 confidence)
+      "match_score": 0.683,
       "averageScore": 66,
-      "matched_synonym": "The Blue Orchestra Season 2" // Found using synonym match
+      "matched_synonym": "The Blue Orchestra Season 2"
     },
     "timestamp": "2025-10-29T21:46:40.595461"
   },
