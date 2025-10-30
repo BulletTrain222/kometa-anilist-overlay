@@ -248,9 +248,9 @@ You can manually control how specific titles are handled using `/config/manual_e
 Alternatively, you can set a custom path with the environment variable: `MANUAL_EXCEPTIONS_FILE=/path/to/manual_exceptions.json`
 
 ### Finding AniList IDs
-You can find AniList IDs by visiting a show’s AniList page: `https://anilist.co/anime/`rgb(9, 105, 218)`<id>/`
+You can find AniList IDs by visiting a show’s AniList page: `https://anilist.co/anime/<id>/`
 
-$${\color{red}Red}$$ For example:
+For example:
 ```
 https://anilist.co/anime/21459/
 ```
