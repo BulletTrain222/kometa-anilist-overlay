@@ -33,7 +33,6 @@ docker run -d \
   -e MAX_AIR_DAYS=14 `# Maximum upcoming days to include` \
   -e FORCE_REFRESH=false `# If true, ignores cache and re-queries AniList` \
   -e ANILIST_DEBUG=false `# Enable detailed debug logging` \
-  -e ANILIST_FORMATS=TV,TV_SHORT,ONA,OVA,MOVIE `# Comma-separated formats to include` \
   -e LOG_FILE=/config/logs/anilist_overlay.log `# Path to log file` \
   -e MAX_LOG_SIZE=5242880 `# Maximum log file size before rotation (bytes)` \
   -e BACKUP_COUNT=7 `# Number of old log files to keep` \
@@ -78,7 +77,6 @@ services:
 | `OVERLAY_COUNTDOWN_FILE`| **File path for countdown_overlays.yml.** Generates overlays like `today`, `tomorrow`, `in 3 days`, etc.                                              | `/config/overlays/countdown_overlays.yml`  |
 | `RATE_LIMIT_DELAY`   | **Seconds to wait between AniList API calls.** Helps prevent hitting rate limits. Recommended: `3–5`.                                                    | `5`                                        |
 | `CACHE_EXPIRY_HOURS` | **How long cached AniList data stays valid** before being refreshed. Lower = more frequent re-queries.                                                   | `120`                                      |
-| `ANILIST_FORMATS`    | **Comma-separated AniList formats to include.** Lets you limit to `TV`, `OVA`, etc. Accepted values: `TV`, `TV_SHORT`, `ONA`, `OVA`, `MOVIE`, `SPECIAL`. | `TV,TV_SHORT,ONA,OVA`                      |
 | `MAX_AIR_DAYS`       | **Maximum future days to include for airing episodes.** Prevents adding overlays for shows airing months away.                                           | `14`                                       |
 | `FORCE_REFRESH`      | **Bypasses cache on next run.** Set `true` to re-fetch all AniList data even if cached. Useful if schedules change.                                      | `false`                                    |
 | `ANILIST_DEBUG`      | **Enables detailed AniList match logs.** Logs all candidate titles, synonyms, and match scores_                                                          | `false`                                    |
