@@ -16,12 +16,12 @@ ANILIST_TOKEN = os.getenv("ANILIST_TOKEN")
 PLEX_URL = os.getenv("PLEX_URL", "http://localhost:32400")
 PLEX_TOKEN = os.getenv("PLEX_TOKEN")
 LIBRARY_NAME = os.getenv("LIBRARY_NAME", "Anime")
-
+# File output locations
 OVERLAY_WEEKDAY_FILE = os.getenv("OVERLAY_WEEKDAY_FILE", "/config/overlays/weekday_overlays.yml")
 OVERLAY_COUNTDOWN_FILE = os.getenv("OVERLAY_COUNTDOWN_FILE", "/config/overlays/countdown_overlays.yml")
 CACHE_FILE = os.getenv("CACHE_FILE", "/config/anilist_cache.json")
 MANUAL_EXCEPTIONS_FILE = os.getenv("MANUAL_EXCEPTIONS_FILE", "/config/manual_exceptions.json")
-
+# Behavioral and timing settings
 RATE_LIMIT_DELAY = int(os.getenv("RATE_LIMIT_DELAY", 5))
 CACHE_EXPIRY_HOURS = int(os.getenv("CACHE_EXPIRY_HOURS", 24))
 LOCAL_TZ = pytz.timezone(os.getenv("TZ", "UTC"))
@@ -35,7 +35,7 @@ LOG_FILE = os.getenv("LOG_FILE", "/config/logs/anilist_overlay.log")
 MAX_LOG_SIZE = int(os.getenv("MAX_LOG_SIZE", 5 * 1024 * 1024))
 BACKUP_COUNT = int(os.getenv("BACKUP_COUNT", 7))
 
-os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)# Ensure log folder exists; create it if missing
 logger = logging.getLogger("anilist_overlay")
 logger.setLevel(logging.DEBUG if ANILIST_DEBUG else logging.INFO)
 file_handler = RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=BACKUP_COUNT, encoding="utf-8")
@@ -55,11 +55,11 @@ def hash_file(path):
 
 # ===== CACHE HANDLERS =====
 def load_cache():
-    if os.path.exists(CACHE_FILE):
+    if os.path.exists(CACHE_FILE): # Check if cache file exists
         try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f: # Open cache file in read mode
                 data = json.load(f)
-                logger.info(f"🗂️  Loaded cache with {len(data)} entries.")
+                logger.info(f"🗂️  Loaded cache with {len(data)} entries.") # Log number of cached entries
                 return data
         except Exception as e:
             logger.warning(f"Failed to load cache: {e}")
@@ -67,9 +67,9 @@ def load_cache():
 
 def save_cache(cache):
     try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-        logger.info(f"💾 Cache saved successfully ({len(cache)} entries).")
+        with open(CACHE_FILE, "w", encoding="utf-8") as f: # Open cache file in write mode
+            json.dump(cache, f, ensure_ascii=False, indent=2) # Save cache as pretty-printed JSON
+        logger.info(f"💾 Cache saved successfully ({len(cache)} entries).") # Confirm save success
         logger.info(f"🧾 {CACHE_FILE} MD5: {hash_file(CACHE_FILE)}")
     except Exception as e:
         logger.error(f"Failed to save cache: {e}")
@@ -77,7 +77,7 @@ def save_cache(cache):
 def is_cache_valid(entry):
     try:
         ts_str = entry.get("timestamp")
-        if not ts_str:
+        if not ts_str: # No timestamp = invalid
             return False
 
         ts = datetime.fromisoformat(ts_str)
@@ -90,17 +90,17 @@ def is_cache_valid(entry):
         # --- NEW: Invalidate cache if the stored air date already passed ---
         result = entry.get("result", {})
         air_local_str = result.get("air_datetime_local")
-        if air_local_str:
+        if air_local_str: # If an air date exists, check if it's outdated
             try:
                 air_local = datetime.strptime(air_local_str, "%Y-%m-%d %H:%M:%S")
-                if air_local < now:
-                    return False
+                if air_local < now: # If air date is earlier than now
+                    return False # Expired cache
             except Exception:
                 pass  # ignore if malformed
 
-        return True
+        return True # Cache is still valid
     except Exception:
-        return False
+        return False # On any error, assume cache invalid
 
 
 # ===== MANUAL EXCEPTIONS =====
@@ -160,15 +160,18 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
     variables = {"search": title}
     headers = {"Authorization": f"Bearer {ANILIST_TOKEN}"}
 
-    # ===== MANUAL EXCEPTIONS CHECK =====
-    if title in MANUAL_EXCEPTIONS:
+ # ===== MANUAL EXCEPTIONS CHECK (always override cache) =====
+    if title in MANUAL_EXCEPTIONS:  # ← indented inside function now
         rule = MANUAL_EXCEPTIONS[title]
+        logger.info(f"⚙️ Manual exception found for '{title}' — overriding cache")
+
+        # Skip titles explicitly marked to ignore
         if rule is None or (isinstance(rule, str) and rule.lower() == "ignore"):
             logger.info(f"🚫 Skipping '{title}' (manual exception: ignore).")
             counters["no_airing"] += 1
-            cache[title] = {"result": {"weekday": "none"}, "timestamp": datetime.now().isoformat()}
             return {"weekday": "none"}, cache
 
+        # Manual AniList ID override
         elif isinstance(rule, int):
             logger.info(f"🎯 Manual AniList override for '{title}' → ID {rule}")
             query = '''
@@ -185,18 +188,17 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
             '''
             variables = {"id": rule}
 
-    # ===== CACHE CHECK =====
-    if not FORCE_REFRESH and title in cache and is_cache_valid(cache[title]):
-        counters["cache_used"] += 1
-        logger.info(f"📦 Using CACHE for '{title}'")
-        return cache[title]["result"], cache
-    elif FORCE_REFRESH:
-        logger.info(f"🔁 Force refresh enabled — ignoring cache for '{title}'")
-    else:
-        logger.info(f"🌐 Fetching from AniList API for '{title}'")
+    else:  # ← also indented inside function
+        # ===== CACHE CHECK =====
+        if not FORCE_REFRESH and title in cache and is_cache_valid(cache[title]):
+            counters["cache_used"] += 1
+            logger.info(f"📦 Using CACHE for '{title}'")
+            return cache[title]["result"], cache
+        elif FORCE_REFRESH:
+            logger.info(f"🔁 Force refresh enabled — ignoring cache for '{title}'")
+        else:
+            logger.info(f"🌐 Fetching from AniList API for '{title}'")
 
-    time.sleep(RATE_LIMIT_DELAY)
-    counters["api_calls"] += 1
 
     result = {
         "weekday": "none",
@@ -263,9 +265,9 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
             for candidate, ctype in candidates:
                 score = 1.0 if candidate.strip().lower() == title.strip().lower() else similarity(title, candidate)
                 if media.get("status") == "RELEASING":
-                    score += 0.15
+                    score += 0.5
                 if media.get("nextAiringEpisode"):
-                    score += 0.10
+                    score += 0.4
                 if not best_match or score > best_score:
                     best_match, best_score, matched_synonym = media, score, (candidate if ctype == "synonym" else None)
 
