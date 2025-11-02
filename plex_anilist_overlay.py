@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from plexapi.server import PlexServer
 import pytz
 from difflib import SequenceMatcher
+import hashlib
 
 # ===== CONFIG =====
 ANILIST_TOKEN = os.getenv("ANILIST_TOKEN")
@@ -34,39 +35,42 @@ LOG_FILE = os.getenv("LOG_FILE", "/config/logs/anilist_overlay.log")
 MAX_LOG_SIZE = int(os.getenv("MAX_LOG_SIZE", 5 * 1024 * 1024))
 BACKUP_COUNT = int(os.getenv("BACKUP_COUNT", 7))
 
-os.makedirs(os.path.dirname(LOG_FILE) or ".", exist_ok=True)
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 logger = logging.getLogger("anilist_overlay")
 logger.setLevel(logging.DEBUG if ANILIST_DEBUG else logging.INFO)
+file_handler = RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=BACKUP_COUNT, encoding="utf-8")
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
-# Make logging setup idempotent to avoid duplicate handlers when reloading
-if not logger.handlers:
-	file_handler = RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=BACKUP_COUNT, encoding="utf-8")
-	file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-	console_handler = logging.StreamHandler()
-	console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-	logger.addHandler(file_handler)
-	logger.addHandler(console_handler)
+# ===== FILE HASH =====
+def hash_file(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()
+    except:
+        return "?"
 
 # ===== CACHE HANDLERS =====
 def load_cache():
-    if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 0:
+    if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 logger.info(f"🗂️  Loaded cache with {len(data)} entries.")
                 return data
         except Exception as e:
-            logger.warning(f"Failed to load cache (corrupted/invalid JSON?): {e}")
+            logger.warning(f"Failed to load cache: {e}")
     return {}
 
 def save_cache(cache):
     try:
-        cache_dir = os.path.dirname(CACHE_FILE)
-        if cache_dir:
-            os.makedirs(cache_dir, exist_ok=True)
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False, indent=2)
         logger.info(f"💾 Cache saved successfully ({len(cache)} entries).")
+        logger.info(f"🧾 {CACHE_FILE} MD5: {hash_file(CACHE_FILE)}")
     except Exception as e:
         logger.error(f"Failed to save cache: {e}")
 
@@ -75,12 +79,29 @@ def is_cache_valid(entry):
         ts_str = entry.get("timestamp")
         if not ts_str:
             return False
+
         ts = datetime.fromisoformat(ts_str)
-        # normalize comparision: if ts is naive, compare with naive now; otherwise use aware now
         now = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
-        return (now - ts) < timedelta(hours=CACHE_EXPIRY_HOURS)
+
+        # Normal time-based cache expiry
+        if (now - ts) >= timedelta(hours=CACHE_EXPIRY_HOURS):
+            return False
+
+        # --- NEW: Invalidate cache if the stored air date already passed ---
+        result = entry.get("result", {})
+        air_local_str = result.get("air_datetime_local")
+        if air_local_str:
+            try:
+                air_local = datetime.strptime(air_local_str, "%Y-%m-%d %H:%M:%S")
+                if air_local < now:
+                    return False
+            except Exception:
+                pass  # ignore if malformed
+
+        return True
     except Exception:
         return False
+
 
 # ===== MANUAL EXCEPTIONS =====
 def load_manual_exceptions():
@@ -137,9 +158,7 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
     }
     '''
     variables = {"search": title}
-    headers = {}
-    if ANILIST_TOKEN:
-        headers["Authorization"] = f"Bearer {ANILIST_TOKEN}"
+    headers = {"Authorization": f"Bearer {ANILIST_TOKEN}"}
 
     # ===== MANUAL EXCEPTIONS CHECK =====
     if title in MANUAL_EXCEPTIONS:
@@ -193,17 +212,11 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
     }
 
     try:
-        resp = requests.post(url, json={"query": query, "variables": variables}, headers=headers, timeout=30)
-        resp.raise_for_status()
-        try:
-            data = resp.json()
-        except ValueError as e:
-            logger.error(f"AniList returned invalid JSON for '{title}': {e}")
-            cache[title] = {"result": result, "timestamp": datetime.now().isoformat()}
-            return result, cache
+        response = requests.post(url, json={"query": query, "variables": variables}, headers=headers)
+        data = response.json()
 
         if "errors" in data:
-            logger.warning(f"AniList error for '{title}': {data['errors'][0].get('message')}")
+            logger.warning(f"AniList error for '{title}': {data['errors'][0]['message']}")
             cache[title] = {"result": result, "timestamp": datetime.now().isoformat()}
             return result, cache
 
@@ -297,8 +310,6 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
         counters["airing_found"] += 1
         logger.info(f"✅ AniList data fetched for '{title}' | Next Ep: {result['episode_number']} on {result['weekday'].capitalize()}")
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error fetching AniList for '{title}': {e}")
     except Exception as e:
         logger.error(f"Error fetching '{title}': {e}")
 
@@ -394,11 +405,7 @@ def build_overlay():
     now_local = datetime.now(LOCAL_TZ)
     counters = {"total": 0, "cache_used": 0, "api_calls": 0, "airing_found": 0, "no_airing": 0}
 
-    # Fetch Plex show list once to avoid repeated API calls
-    shows = list(library.search(libtype="show"))
-    plex_titles = {s.title for s in shows}
-
-    for show in shows:
+    for show in library.search(libtype="show"):
         title = show.title
         counters["total"] += 1
         logger.debug(f"Processing: {title}")
@@ -416,10 +423,10 @@ def build_overlay():
             countdown_overlays[title] = {"overlay": {"name": label}, "plex_search": {"all": {"title": title}}}
         except Exception as e:
             logger.warning(f"Failed to calculate day diff for {title}: {e}")
-
     # ===== CLEAN DEAD CACHE ENTRIES =====
     if CLEAN_MISSING_FROM_PLEX:
         logger.info("🧹 Checking for cache entries no longer present in Plex library...")
+        plex_titles = {show.title for show in library.search(libtype="show")}
         before_count = len(cache)
         removed_entries = []
 
@@ -449,13 +456,8 @@ def build_overlay():
     else:
         logger.debug("🧩 Cache cleanup skipped (CLEAN_MISSING_FROM_PLEX=false).")
 
-    save_cache(cache)
 
-    # Ensure overlay directories exist before writing
-    for path in (OVERLAY_WEEKDAY_FILE, OVERLAY_COUNTDOWN_FILE):
-        d = os.path.dirname(path)
-        if d:
-            os.makedirs(d, exist_ok=True)
+    save_cache(cache)
 
     try:
         with open(OVERLAY_WEEKDAY_FILE, "w", encoding="utf-8") as f:
@@ -464,6 +466,8 @@ def build_overlay():
             yaml.dump({"overlays": countdown_overlays}, f, sort_keys=False, allow_unicode=True)
         logger.info(f"✅ Weekday overlay file written: {OVERLAY_WEEKDAY_FILE}")
         logger.info(f"✅ Countdown overlay file written: {OVERLAY_COUNTDOWN_FILE}")
+        logger.info(f"🧾 {OVERLAY_WEEKDAY_FILE} MD5: {hash_file(OVERLAY_WEEKDAY_FILE)}")
+        logger.info(f"🧾 {OVERLAY_COUNTDOWN_FILE} MD5: {hash_file(OVERLAY_COUNTDOWN_FILE)}")
     except Exception as e:
         logger.error(f"Failed to write overlay files: {e}")
 
