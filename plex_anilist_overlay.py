@@ -93,8 +93,8 @@ def is_cache_valid(entry):
         if air_local_str: # If an air date exists, check if it's outdated
             try:
                 air_local = datetime.strptime(air_local_str, "%Y-%m-%d %H:%M:%S")
-                if air_local < now: # If air date is earlier than now
-                    return False # Expired cache
+                if now.date() > air_local.date(): # Only invalidate *after midnight* of the air date
+                    return False #It's a new day → invalidate
             except Exception:
                 pass  # ignore if malformed
 
@@ -481,3 +481,4 @@ def build_overlay():
 if __name__ == "__main__":
     print_system_summary()
     build_overlay()
+
