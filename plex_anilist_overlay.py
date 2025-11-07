@@ -10,6 +10,9 @@ from plexapi.server import PlexServer
 import pytz
 from difflib import SequenceMatcher
 import hashlib
+from collections import deque
+from time import monotonic, sleep
+
 
 # ===== CONFIG =====
 ANILIST_TOKEN = os.getenv("ANILIST_TOKEN")
@@ -19,11 +22,20 @@ LIBRARY_NAME = os.getenv("LIBRARY_NAME", "Anime")
 # File output locations
 OVERLAY_WEEKDAY_FILE = os.getenv("OVERLAY_WEEKDAY_FILE", "/config/overlays/weekday_overlays.yml")
 OVERLAY_COUNTDOWN_FILE = os.getenv("OVERLAY_COUNTDOWN_FILE", "/config/overlays/countdown_overlays.yml")
+OVERLAY_AUDIO_FILE = os.getenv("OVERLAY_AUDIO_FILE", "/config/overlays/audio_overlays.yml")
 CACHE_FILE = os.getenv("CACHE_FILE", "/config/anilist_cache.json")
 MANUAL_EXCEPTIONS_FILE = os.getenv("MANUAL_EXCEPTIONS_FILE", "/config/manual_exceptions.json")
+# Overlay feature toggles - control which overlays are generated
+ENABLE_WEEKDAY_OVERLAY = os.getenv("ENABLE_WEEKDAY_OVERLAY", "true").lower() == "true"
+ENABLE_COUNTDOWN_OVERLAY = os.getenv("ENABLE_COUNTDOWN_OVERLAY", "true").lower() == "true"
+ENABLE_AUDIO_OVERLAY = os.getenv("ENABLE_AUDIO_OVERLAY", "true").lower() == "true"
 # Behavioral and timing settings
 RATE_LIMIT_DELAY = int(os.getenv("RATE_LIMIT_DELAY", 5))
-CACHE_EXPIRY_HOURS = int(os.getenv("CACHE_EXPIRY_HOURS", 24))
+ANILIST_RPM = int(os.getenv("ANILIST_RPM", 30))
+ANILIST_TIMEOUT = int(os.getenv("ANILIST_TIMEOUT", 20))
+CACHE_EXPIRY_HOURS = int(os.getenv("CACHE_EXPIRY_HOURS", 120))
+CACHE_EXPIRY_HOURS_ANILIST = int(os.getenv("CACHE_EXPIRY_HOURS_ANILIST", 72))
+CACHE_EXPIRY_HOURS_AUDIO = int(os.getenv("CACHE_EXPIRY_HOURS_AUDIO", 12))
 LOCAL_TZ = pytz.timezone(os.getenv("TZ", "UTC"))
 ANILIST_DEBUG = os.getenv("ANILIST_DEBUG", "false").lower() == "true"
 MAX_AIR_DAYS = int(os.getenv("MAX_AIR_DAYS", 14))
@@ -35,7 +47,7 @@ LOG_FILE = os.getenv("LOG_FILE", "/config/logs/anilist_overlay.log")
 MAX_LOG_SIZE = int(os.getenv("MAX_LOG_SIZE", 5 * 1024 * 1024))
 BACKUP_COUNT = int(os.getenv("BACKUP_COUNT", 7))
 
-os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)# Ensure log folder exists; create it if missing
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 logger = logging.getLogger("anilist_overlay")
 logger.setLevel(logging.DEBUG if ANILIST_DEBUG else logging.INFO)
 file_handler = RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=BACKUP_COUNT, encoding="utf-8")
@@ -67,40 +79,45 @@ def load_cache():
 
 def save_cache(cache):
     try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f: # Open cache file in write mode
-            json.dump(cache, f, ensure_ascii=False, indent=2) # Save cache as pretty-printed JSON
-        logger.info(f"💾 Cache saved successfully ({len(cache)} entries).") # Confirm save success
+        tmp_file = CACHE_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_file, CACHE_FILE)
+        logger.info(f"💾 Cache saved successfully ({len(cache)} entries).")
         logger.info(f"🧾 {CACHE_FILE} MD5: {hash_file(CACHE_FILE)}")
     except Exception as e:
         logger.error(f"Failed to save cache: {e}")
 
-def is_cache_valid(entry):
+def is_cache_valid(entry, expiry_hours=None):
+    """Validate cache entry using either global or override expiry (in hours)."""
     try:
         ts_str = entry.get("timestamp")
-        if not ts_str: # No timestamp = invalid
+        if not ts_str:
             return False
 
         ts = datetime.fromisoformat(ts_str)
         now = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
+        hours = expiry_hours if expiry_hours is not None else CACHE_EXPIRY_HOURS
 
-        # Normal time-based cache expiry
-        if (now - ts) >= timedelta(hours=CACHE_EXPIRY_HOURS):
+        # Time-based expiry
+        if (now - ts) >= timedelta(hours=hours):
             return False
 
-        # --- NEW: Invalidate cache if the stored air date already passed ---
+        # Special rule: invalidate AniList results after air date passes
         result = entry.get("result", {})
         air_local_str = result.get("air_datetime_local")
-        if air_local_str: # If an air date exists, check if it's outdated
+        if air_local_str:
             try:
                 air_local = datetime.strptime(air_local_str, "%Y-%m-%d %H:%M:%S")
-                if now.date() > air_local.date(): # Only invalidate *after midnight* of the air date
-                    return False #It's a new day → invalidate
+                if now.date() > air_local.date():
+                    return False
             except Exception:
-                pass  # ignore if malformed
+                pass
 
-        return True # Cache is still valid
+        return True
     except Exception:
-        return False # On any error, assume cache invalid
+        return False
+
 
 
 # ===== MANUAL EXCEPTIONS =====
@@ -133,6 +150,120 @@ def connect_plex(retries=5, delay=20):
             else:
                 logger.error("❌ Could not connect to Plex after multiple attempts.")
                 raise
+
+
+# ===== AUDIO COUNT =====
+def get_audio_counts(show):
+    eng_count = 0
+    jpn_count = 0
+
+    for ep in show.episodes():
+        try:
+            # reload the full episode metadata (includes Media & Streams)
+            ep.reload(includeAll=True)
+            for media in ep.media:
+                for part in media.parts:
+                    for s in part.streams:
+                        if getattr(s, "streamType", None) == 2:  # audio only
+                            lang = (s.languageCode or s.languageTag or "").lower()
+                            if lang in ["en", "eng"]:
+                                eng_count += 1
+                            elif lang in ["ja", "jpn"]:
+                                jpn_count += 1
+        except Exception as e:
+            logger.debug(f"⚠️ Audio scan error for {show.title}: {e}")
+            continue
+
+    return eng_count, jpn_count
+
+
+# ===== ANILIST RATE LIMITER + REQUEST WRAPPER =====
+_RATE_WINDOW = 60.0
+_request_times = deque()
+
+def _ratelimit_gate(limit_per_min: int):
+    """Block until we're allowed to make a request (sliding window + min spacing)."""
+    now = monotonic()
+
+    # Drop old timestamps outside the 60s window
+    while _request_times and (now - _request_times[0]) > _RATE_WINDOW:
+        _request_times.popleft()
+
+    # If we already hit limit inside window, wait until the oldest expires
+    if len(_request_times) >= limit_per_min:
+        sleep_for = _RATE_WINDOW - (now - _request_times[0]) + 0.05
+        logger.debug(f"⏳ Waiting {sleep_for:.2f}s to respect {limit_per_min}/min window")
+        sleep(max(0.0, sleep_for))
+
+    # Burst spacing: keep at least 60/limit seconds between calls
+    min_spacing = _RATE_WINDOW / max(1, limit_per_min)
+    if _request_times:
+        elapsed = monotonic() - _request_times[-1]
+        if elapsed < min_spacing:
+            to_sleep = min_spacing - elapsed
+            logger.debug(f"⏱️ Spacing sleep {to_sleep:.2f}s (burst limiter)")
+            sleep(to_sleep)
+
+def _record_request():
+    _request_times.append(monotonic())
+
+def anilist_request(query: str, variables: dict, headers: dict):
+    """Call AniList with rate limiting and 429 handling."""
+    while True:
+        # Gate by our own limiter first
+        _ratelimit_gate(ANILIST_RPM)
+
+        try:
+            resp = requests.post(
+                "https://graphql.anilist.co",
+                json={"query": query, "variables": variables},
+                headers=headers,
+                timeout=ANILIST_TIMEOUT,
+            )
+        except Exception as e:
+            # brief jittered retry on transport errors
+            logger.warning(f"🌐 AniList transport error: {e}; retrying in 2s")
+            sleep(2.0)
+            continue
+
+        # 429 hard limit — honor Retry-After / Reset
+        if resp.status_code == 429:
+            ra = resp.headers.get("Retry-After")
+            reset = resp.headers.get("X-RateLimit-Reset")
+            if ra and ra.isdigit():
+                wait_s = int(ra)
+                logger.warning(f"🚦 429 Too Many Requests — sleeping {wait_s}s per Retry-After")
+                sleep(wait_s)
+            elif reset and reset.isdigit():
+                reset_ts = int(reset)
+                wait_s = max(0, reset_ts - int(time.time())) + 1
+                logger.warning(f"🚦 429 Too Many Requests — sleeping until reset ({wait_s}s)")
+                sleep(wait_s)
+            else:
+                logger.warning("🚦 429 Too Many Requests — sleeping 60s (no headers)")
+                sleep(60)
+            # loop and try again
+            continue
+
+        # Successful response (or other non-429)
+        try:
+            lim = int(resp.headers.get("X-RateLimit-Limit", ANILIST_RPM))
+            rem = int(resp.headers.get("X-RateLimit-Remaining", ANILIST_RPM))
+            logger.info(f"🌐 AniList rate status: {rem}/{lim} requests remaining this minute")
+            
+            # Optional: if near limit, apply a soft cooldown
+            if rem <= max(1, lim // 10):
+                slot = _RATE_WINDOW / max(1, lim)
+                logger.warning(f"🪫 Near limit ({rem}/{lim}) — soft-sleep {slot:.2f}s to avoid 429")
+                sleep(slot)
+        except Exception as e:
+            logger.debug(f"⚠️ Could not read AniList rate headers: {e}")
+
+
+        _record_request()
+        return resp
+
+
 
 # ===== CORE FUNCTION =====
 def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
@@ -214,8 +345,9 @@ def get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS):
     }
 
     try:
-        response = requests.post(url, json={"query": query, "variables": variables}, headers=headers)
+        response = anilist_request(query, variables, headers)
         data = response.json()
+
 
         if "errors" in data:
             logger.warning(f"AniList error for '{title}': {data['errors'][0]['message']}")
@@ -368,6 +500,8 @@ def print_system_summary():
         "Cache File": CACHE_FILE,
         "Rate Limit Delay": f"{RATE_LIMIT_DELAY}s",
         "Cache Expiry": f"{CACHE_EXPIRY_HOURS}h",
+        "Cache Expiry (AniList)": f"{CACHE_EXPIRY_HOURS_ANILIST}h",
+        "Cache Expiry (Audio)": f"{CACHE_EXPIRY_HOURS_AUDIO}h",
         "Force Refresh": FORCE_REFRESH,
         "Max Air Days": MAX_AIR_DAYS,
         "Clean Missing from Plex": CLEAN_MISSING_FROM_PLEX,
@@ -407,78 +541,245 @@ def build_overlay():
     now_local = datetime.now(LOCAL_TZ)
     counters = {"total": 0, "cache_used": 0, "api_calls": 0, "airing_found": 0, "no_airing": 0}
 
+    # ===== PASS 1: BUILD AUDIO CACHE SEPARATELY =====
+    logger.info("=== 🎧 Scanning Plex shows for audio track counts... ===")
+    audio_cache = cache.get("_audio", {})
+
+    for show in library.search(libtype="show"):
+        title = show.title
+        show_eps = len(show.episodes())
+
+        audio_entry = audio_cache.get(title, {})
+        cached_eng = audio_entry.get("english_audio_count", -1)
+        cached_jpn = audio_entry.get("japanese_audio_count", -1)
+        cached_eps = audio_entry.get("episode_count", -1)
+
+        expired = not is_cache_valid(audio_entry, CACHE_EXPIRY_HOURS_AUDIO)
+        needs_update = bool(
+            expired
+            or cached_eng == -1
+            or cached_jpn == -1
+            or cached_eps != show_eps
+        )
+
+        if needs_update:
+            try:
+                eng_count, jpn_count = get_audio_counts(show)
+                audio_cache[title] = {
+                    "english_audio_count": eng_count,
+                    "japanese_audio_count": jpn_count,
+                    "episode_count": show_eps,
+                    "timestamp": datetime.now().isoformat()
+                }
+                logger.info(f"🎧 Updated cached audio counts for '{title}' — ENG: {eng_count}, JPN: {jpn_count}, Episodes: {show_eps}")
+            except Exception as e:
+                logger.warning(f"⚠️ Audio scan failed for '{title}': {e}")
+        else:
+            logger.debug(f"🎧 Using cached audio for '{title}' — ENG: {cached_eng}, JPN: {cached_jpn}, Episodes: {show_eps}")
+
+    # ✅ Write audio sub-cache back into main cache
+    cache["_audio"] = audio_cache
+    save_cache(cache)
+    logger.info("✅ Audio cache update complete.\n")
+
+    # ===== PASS 2: FETCH ANILIST INFO & BUILD NORMAL OVERLAYS =====
     for show in library.search(libtype="show"):
         title = show.title
         counters["total"] += 1
         logger.debug(f"Processing: {title}")
-        info, cache = get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS)
+
+        # ---- AniList CACHE SHORT-CIRCUIT ----
+        use_cache = (not FORCE_REFRESH and title in cache and is_cache_valid(cache[title], CACHE_EXPIRY_HOURS_ANILIST))
+        if use_cache:
+            info = cache[title]["result"]
+            counters["cache_used"] += 1
+            logger.debug(f"📦 Using CACHE for '{title}'")
+        else:
+            # Real API call
+            info, cache = get_next_air_datetime(title, cache, counters, MANUAL_EXCEPTIONS)
+            counters["api_calls"] += 1
+            #logger.debug(f"⏱️ Rate limit delay: sleeping {RATE_LIMIT_DELAY}s")
+            #time.sleep(RATE_LIMIT_DELAY) #uncomment if api rate limiter breaks
+
+        # Get cached audio counts from sub-cache (already computed)
+        audio_entry = cache.get("_audio", {}).get(title, {})
+        eng_count = audio_entry.get("english_audio_count", 0)
+        jpn_count = audio_entry.get("japanese_audio_count", 0)
+        # (You can use eng_count/jpn_count later for your audio overlay YAML)
+
         day, air_str_local = info.get("weekday"), info.get("air_datetime_local")
         if day == "none" or not air_str_local:
             logger.info(f"Skipping {title} (no upcoming episodes).")
             continue
 
-        weekday_overlays[title] = {"overlay": {"name": day}, "plex_search": {"all": {"title": title}}}
+        weekday_overlays[title] = {
+            "overlay": {"name": day},
+            "plex_search": {"all": {"title": title}}
+        }
+
         try:
             air_dt_local = datetime.strptime(air_str_local, "%Y-%m-%d %H:%M:%S")
             days_until = (air_dt_local.date() - now_local.date()).days
+
+            # Skip if the episode airs too far in the future
+            if days_until > MAX_AIR_DAYS:
+                logger.info(f"⏩ Skipping '{title}' — next episode airs in {days_until} days (beyond {MAX_AIR_DAYS}-day limit).")
+                continue
+
             label = get_day_label(days_until)
-            countdown_overlays[title] = {"overlay": {"name": label}, "plex_search": {"all": {"title": title}}}
+            countdown_overlays[title] = {
+                "overlay": {"name": label},
+                "plex_search": {"all": {"title": title}}
+            }
         except Exception as e:
             logger.warning(f"Failed to calculate day diff for {title}: {e}")
-    # ===== CLEAN DEAD CACHE ENTRIES =====
-    if CLEAN_MISSING_FROM_PLEX:
-        logger.info("🧹 Checking for cache entries no longer present in Plex library...")
-        plex_titles = {show.title for show in library.search(libtype="show")}
-        before_count = len(cache)
-        removed_entries = []
-
-        for title in list(cache.keys()):
-            if title not in plex_titles:
-                entry = cache.get(title, {})
-                ts = entry.get("timestamp")
-                age_days = None
-                if ts:
-                    try:
-                        age_days = (datetime.now() - datetime.fromisoformat(ts)).days
-                    except Exception:
-                        pass
-                removed_entries.append((title, age_days))
-                del cache[title]
-
-        removed = len(removed_entries)
-        if removed > 0:
-            for title, age in removed_entries:
-                if age is not None:
-                    logger.debug(f"🗑️ Removed '{title}' (cache age: {age} days)")
-                else:
-                    logger.debug(f"🗑️ Removed '{title}' (no timestamp found)")
-            logger.info(f"🧽 Cleaned {removed} cache entr{'y' if removed == 1 else 'ies'} missing from Plex library.")
-        else:
-            logger.info("🧼 No missing Plex entries found in cache.")
-    else:
-        logger.debug("🧩 Cache cleanup skipped (CLEAN_MISSING_FROM_PLEX=false).")
-
-
+        
+        if counters["total"] % 10 == 0:
+            save_cache(cache)
+            logger.debug("🪣 Partial AniList cache checkpoint saved.")
+        
+    # ✅ Final cache save to include last processed titles
+    logger.info("💾 Finalizing AniList cache...")
     save_cache(cache)
+    logger.info("✅ Final AniList cache saved successfully.\n")
 
+    # ===== SAVE OVERLAYS (conditional toggles) =====
+    # Writes overlay YAML files only if enabled via environment flags
     try:
-        with open(OVERLAY_WEEKDAY_FILE, "w", encoding="utf-8") as f:
-            yaml.dump({"overlays": weekday_overlays}, f, sort_keys=False, allow_unicode=True)
-        with open(OVERLAY_COUNTDOWN_FILE, "w", encoding="utf-8") as f:
-            yaml.dump({"overlays": countdown_overlays}, f, sort_keys=False, allow_unicode=True)
-        logger.info(f"✅ Weekday overlay file written: {OVERLAY_WEEKDAY_FILE}")
-        logger.info(f"✅ Countdown overlay file written: {OVERLAY_COUNTDOWN_FILE}")
-        logger.info(f"🧾 {OVERLAY_WEEKDAY_FILE} MD5: {hash_file(OVERLAY_WEEKDAY_FILE)}")
-        logger.info(f"🧾 {OVERLAY_COUNTDOWN_FILE} MD5: {hash_file(OVERLAY_COUNTDOWN_FILE)}")
+        if ENABLE_WEEKDAY_OVERLAY:
+            with open(OVERLAY_WEEKDAY_FILE, "w", encoding="utf-8") as f:
+                yaml.dump({"overlays": weekday_overlays}, f, sort_keys=False, allow_unicode=True)
+            logger.info(f"✅ Weekday overlay file written: {OVERLAY_WEEKDAY_FILE}")
+            logger.info(f"🧾 {OVERLAY_WEEKDAY_FILE} MD5: {hash_file(OVERLAY_WEEKDAY_FILE)}")
+        else:
+            logger.info("🚫 Weekday overlays disabled by config.")
+
+        if ENABLE_COUNTDOWN_OVERLAY:
+            with open(OVERLAY_COUNTDOWN_FILE, "w", encoding="utf-8") as f:
+                yaml.dump({"overlays": countdown_overlays}, f, sort_keys=False, allow_unicode=True)
+            logger.info(f"✅ Countdown overlay file written: {OVERLAY_COUNTDOWN_FILE}")
+            logger.info(f"🧾 {OVERLAY_COUNTDOWN_FILE} MD5: {hash_file(OVERLAY_COUNTDOWN_FILE)}")
+        else:
+            logger.info("🚫 Countdown overlays disabled by config.")
+
     except Exception as e:
-        logger.error(f"Failed to write overlay files: {e}")
+        logger.error(f"❌ Failed to write overlay files: {e}")
+    # ===== PASS 3: BUILD AUDIO OVERLAY YAML =====
+    if ENABLE_AUDIO_OVERLAY:
+        try:
+            logger.info("=== 🎧 Building audio overlays ===")
+            audio_overlays = {}
+            audio_cache = cache.get("_audio", {})
+
+            for title, ainfo in audio_cache.items():
+                def limit_two_digits(n):
+                    #Cap to 2 digits
+                    try:
+                        n = int(n)
+                        return "99" if n > 99 else str(n)
+                    except:
+                        return "0"
+
+                def adjust_offset(num_str, base_offset):
+                    # Shift right by +20px if it's a single digit.
+                    # if "99+" counts as 3+ chars, leave unchanged
+                    return base_offset + 20 if len(num_str) == 1 else base_offset
+
+                # 🔧 force integer conversion for safe comparison
+                try:
+                    raw_eng = int(ainfo.get("english_audio_count", 0))
+                    raw_jpn = int(ainfo.get("japanese_audio_count", 0))
+                    raw_total = int(ainfo.get("episode_count", 0))
+                except Exception:
+                    logger.warning(f"⚠️ Invalid audio data for '{title}' — skipping")
+                    continue
+
+                # allow zero-episode shows to still display overlay
+                if raw_total < 0:
+                    continue # only skip truly invalid negative values
+
+                # then format + adjust offset
+                eng_audio = limit_two_digits(raw_eng)
+                jpn_audio = limit_two_digits(raw_jpn)
+                total_eps = limit_two_digits(raw_total)
+
+                offset_jpn = adjust_offset(jpn_audio, 110)
+                offset_eng = adjust_offset(eng_audio, 270)
+                offset_total = adjust_offset(total_eps, 380)
+
+
+                # ✅ Template same as your example
+                audio_overlays[f"{title} (Base)"] = {
+                    "overlay": {"name": "audio_base", "weight": 10},
+                    "plex_search": {"all": {"title": title}}
+                }
+
+                audio_overlays[f"{title} (JPN)"] = {
+                    "overlay": {
+                        "name": f"text({jpn_audio})",
+                        "weight": 100,
+                        "font": "/config/fonts/impact.ttf",
+                        "font_size": 80,
+                        "font_color": "#FFFFFF",
+                        "horizontal_offset": offset_jpn,
+                        "vertical_offset": 90,
+                        "vertical_align": "top",
+                        "horizontal_align": "left",
+                    },
+                    "plex_search": {"all": {"title": title}},
+                }
+
+                audio_overlays[f"{title} (ENG)"] = {
+                    "overlay": {
+                        "name": f"text({eng_audio})",
+                        "weight": 100,
+                        "font": "/config/fonts/impact.ttf",
+                        "font_size": 80,
+                        "font_color": "#FFFFFF",
+                        "horizontal_offset": offset_eng,
+                        "vertical_offset": 90,
+                        "vertical_align": "top",
+                        "horizontal_align": "left",
+                    },
+                    "plex_search": {"all": {"title": title}},
+                }
+
+                audio_overlays[f"{title} (Total)"] = {
+                    "overlay": {
+                        "name": f"text({total_eps})",
+                        "weight": 100,
+                        "font": "/config/fonts/impact.ttf",
+                        "font_size": 80,
+                        "font_color": "#FFFFFF",
+                        "horizontal_offset": offset_total,
+                        "vertical_offset": 90,
+                        "vertical_align": "top",
+                        "horizontal_align": "left",
+                    },
+                    "plex_search": {"all": {"title": title}},
+                }
+
+            # ===== Write YAML =====
+            with open(OVERLAY_AUDIO_FILE, "w", encoding="utf-8") as f:
+                yaml.dump({"overlays": audio_overlays}, f, sort_keys=False, allow_unicode=True)
+            logger.info(f"✅ Audio overlay file written: {OVERLAY_AUDIO_FILE}")
+            logger.info(f"🧾 {OVERLAY_AUDIO_FILE} MD5: {hash_file(OVERLAY_AUDIO_FILE)}")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to build audio overlays: {e}")
+    else:
+        logger.info("🚫 Audio overlays disabled by config.")
 
     elapsed = time.time() - start_time
     logger.info(f"=== ✅ Overlay Update Complete ({elapsed:.1f}s) ===")
-    logger.info(f"📊 Summary — Total: {counters['total']} | Cache Used: {counters['cache_used']} | API Calls: {counters['api_calls']} | Airing: {counters['airing_found']} | Skipped: {counters['no_airing']}\n")
+    logger.info(
+        f"📊 Summary — Total: {counters['total']} | Cache Used: {counters['cache_used']} | API Calls: {counters['api_calls']} | Airing: {counters['airing_found']} | Skipped: {counters['no_airing']}\n"
+    )
+
+
+
 
 # ===== MAIN =====
 if __name__ == "__main__":
     print_system_summary()
     build_overlay()
-
