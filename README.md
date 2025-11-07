@@ -290,12 +290,15 @@ The script will directly fetch AniList data for those IDs instead of searching b
   "Death Note": 1535
 }
 ```
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/ba649625-600b-4d78-98f2-bd55896c6e7b" />
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/13b6e2cb-9a2e-4e19-bd7e-a0a7673909c1" />
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/2b759bd8-4b26-41be-a6ee-d2af14256617" />
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/bae849ea-0026-4136-a065-bcd50c648599" />
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/73d5e373-c9a9-4061-95ad-d558909d65f5" />
-<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/358ce985-50a5-4638-938b-0053e2e78b66" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/06230dd3-87b8-4bd0-b471-828fd12d558f" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/23e34480-88a2-4b8f-8a4f-9468f884c9c3" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/b21d5c9f-ace4-45f5-9694-5ac0d5d2c62a" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/714e9af7-18d6-4590-91f4-6f4c0ffbf2ec" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/7271eedf-195e-4866-a12a-8d6d3d64608a" />
+<img width="250" height="375" alt="image" src="https://github.com/user-attachments/assets/42d63431-0f60-49e1-9ea4-036edbbec1c1" />
+
+
+
 
 
 
